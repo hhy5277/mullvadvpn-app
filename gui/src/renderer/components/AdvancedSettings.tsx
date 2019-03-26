@@ -36,6 +36,19 @@ function mapPortToSelectorItem(value: number): ISelectorItem<number> {
   return { label: value.toString(), value };
 }
 
+function makeBridgeItems(): Array<ISelectorItem<Boolean>> {
+  return [
+    {
+      label: messages.pgettext('advanced-settings-view', 'On'),
+      value: true,
+    },
+    {
+      label: messages.pgettext('advanced-settings-view', 'Off'),
+      value: false,
+    },
+  ];
+}
+
 interface IProps {
   enableIpv6: boolean;
   blockWhenDisconnected: boolean;
@@ -56,6 +69,8 @@ interface IState {
 }
 
 export default class AdvancedSettings extends Component<IProps, IState> {
+  private bridgeSelectorItems = makeBridgeItems();
+
   constructor(props: IProps) {
     super(props);
 
@@ -162,6 +177,18 @@ export default class AdvancedSettings extends Component<IProps, IState> {
                       undefined
                     )}
                   </View>
+
+                  <Selector
+                    title={
+                      // TRANSLATORS: The title for the shadowsocks bridge selector section.
+                      messages.pgettext('advanced-settings-view', 'Shadowsocks bridge')
+                    }
+                    values={this.bridgeSelectorItems}
+                    value={undefined}
+                    onSelect={() => {
+                      // TODO: implement
+                    }}
+                  />
 
                   <Cell.Container>
                     <Cell.Label>{messages.pgettext('advanced-settings-view', 'Mssfix')}</Cell.Label>
