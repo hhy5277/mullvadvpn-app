@@ -48,6 +48,8 @@ pub struct Relay {
     pub weight: u64,
     #[serde(skip_serializing_if = "RelayTunnels::is_empty", default)]
     pub tunnels: RelayTunnels,
+    #[serde(skip_serializing_if = "RelayBridges::is_empty", default)]
+    pub bridges: RelayBridges,
     #[serde(skip)]
     pub location: Option<Location>,
 }
@@ -114,4 +116,27 @@ impl fmt::Display for WireguardEndpointData {
             self.public_key,
         )
     }
+}
+
+#[derive(Debug, Default, Clone, Deserialize, Serialize)]
+#[serde(default)]
+pub struct RelayBridges {
+    pub shadowsocks: Vec<ShadowsocksEndpointData>,
+}
+
+impl RelayBridges {
+    pub fn is_empty(&self) -> bool {
+        self.shadowsocks.is_empty()
+    }
+
+    pub fn clear(&mut self) {
+        self.shadowsocks.clear();
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Deserialize, Serialize)]
+pub struct ShadowsocksEndpointData {
+    pub port: u16,
+    pub cipher: String,
+    pub password: String,
 }
