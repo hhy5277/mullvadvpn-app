@@ -1,5 +1,6 @@
 use crate::relay_constraints::{
-    Constraint, LocationConstraint, RelayConstraints, RelaySettings, RelaySettingsUpdate,
+    BridgeConstraints, BridgeSettings, Constraint, LocationConstraint, RelayConstraints,
+    RelaySettings, RelaySettingsUpdate,
 };
 use log::{debug, info};
 use serde::{Deserialize, Serialize};
@@ -40,6 +41,7 @@ static SETTINGS_FILE: &str = "settings.json";
 pub struct Settings {
     account_token: Option<String>,
     relay_settings: RelaySettings,
+    bridge_settings: BridgeSettings,
     /// If the daemon should allow communication with private (LAN) networks.
     allow_lan: bool,
     /// Extra level of kill switch. When this setting is on, the disconnected state will block
@@ -59,6 +61,10 @@ impl Default for Settings {
             relay_settings: RelaySettings::Normal(RelayConstraints {
                 location: Constraint::Only(LocationConstraint::Country("se".to_owned())),
                 tunnel: Constraint::Any,
+            }),
+            bridge_settings: BridgeSettings::Normal(BridgeConstraints {
+                force_use: false,
+                location: Constraint::Any,
             }),
             allow_lan: false,
             block_when_disconnected: false,
