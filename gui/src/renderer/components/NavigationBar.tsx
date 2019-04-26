@@ -1,5 +1,15 @@
 import * as React from 'react';
-import { Animated, Button, Component, Styles, Text, Types, UserInterface, View } from 'reactxp';
+import {
+  Animated,
+  Button,
+  Component,
+  Styles,
+  Text,
+  TextInput,
+  Types,
+  UserInterface,
+  View,
+} from 'reactxp';
 import { colors } from '../../config.json';
 import CustomScrollbars, { IScrollEvent } from './CustomScrollbars';
 import ImageView from './ImageView';
@@ -12,6 +22,10 @@ const styles = {
       paddingBottom: 12,
     }),
     content: Styles.createViewStyle({
+      flex: 1,
+      flexDirection: 'column',
+    }),
+    itemsContainer: Styles.createViewStyle({
       flex: 1,
       flexDirection: 'row',
     }),
@@ -50,21 +64,6 @@ const styles = {
       opacity: 0,
     }),
   },
-  buttonBarItem: {
-    default: Styles.createButtonStyle({
-      cursor: 'default',
-    }),
-    content: Styles.createViewStyle({
-      flexDirection: 'row',
-      alignItems: 'center',
-    }),
-    label: Styles.createTextStyle({
-      fontFamily: 'Open Sans',
-      fontSize: 13,
-      fontWeight: '600',
-      color: colors.white60,
-    }),
-  },
   closeBarItem: {
     default: Styles.createViewStyle({
       cursor: 'default',
@@ -94,6 +93,23 @@ const styles = {
     icon: Styles.createViewStyle({
       opacity: 0.6,
       marginRight: 8,
+    }),
+  },
+  searchBar: {
+    container: Styles.createViewStyle({
+      marginTop: 14,
+      flexDirection: 'row',
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      borderRadius: 20,
+      backgroundColor: colors.white,
+      alignItems: 'center',
+    }),
+    input: Styles.createTextInputStyle({
+      flex: 1,
+      fontFamily: 'Open Sans',
+      fontSize: 16,
+      marginLeft: 3,
     }),
   },
 };
@@ -261,6 +277,37 @@ class PrivateBarItemAnimationContainer extends Component<IPrivateBarItemAnimatio
 
 interface INavigationBarProps {
   children?: React.ReactNode;
+}
+
+export class SearchBar extends Component {
+  private textInputRef = React.createRef<TextInput>();
+
+  public render() {
+    return (
+      <View style={styles.searchBar.container} onPress={this.onPress}>
+        <ImageView source="icon-search" width={16} height={16} tintColor={'gray'} />
+        <TextInput
+          ref={this.textInputRef}
+          style={styles.searchBar.input}
+          placeholderTextColor={'gray'}
+          placeholder={'Search in relays...'}
+        />
+      </View>
+    );
+  }
+
+  private onPress = () => {
+    const textInput = this.textInputRef.current;
+    if (textInput && !textInput.isFocused()) {
+      textInput.focus();
+    }
+  };
+}
+
+export class NavigationItems extends Component {
+  public render() {
+    return <View style={styles.navigationBar.itemsContainer}>{this.props.children}</View>;
+  }
 }
 
 export const NavigationBar = React.forwardRef(function NavigationBarT(

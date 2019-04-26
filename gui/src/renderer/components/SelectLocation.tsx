@@ -8,7 +8,9 @@ import {
   CloseBarItem,
   NavigationBar,
   NavigationContainer,
+  NavigationItems,
   NavigationScrollbars,
+  SearchBar,
   TitleBarItem,
 } from './NavigationBar';
 import styles from './SelectLocationStyles';
@@ -112,11 +114,14 @@ export default class SelectLocation extends Component<IProps, IState> {
           <View style={styles.select_location}>
             <NavigationContainer>
               <NavigationBar>
-                <CloseBarItem action={this.props.onClose} />
-                <TitleBarItem>
-                  {// TRANSLATORS: Title label in navigation bar
-                  messages.pgettext('select-location-nav', 'Select location')}
-                </TitleBarItem>
+                <NavigationItems>
+                  <CloseBarItem action={this.props.onClose} />
+                  <TitleBarItem>
+                    {// TRANSLATORS: Title label in navigation bar
+                    messages.pgettext('select-location-nav', 'Select location')}
+                  </TitleBarItem>
+                </NavigationItems>
+                <SearchBar />
               </NavigationBar>
               <View style={styles.container}>
                 <NavigationScrollbars ref={this.scrollViewRef}>

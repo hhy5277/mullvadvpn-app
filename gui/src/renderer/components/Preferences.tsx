@@ -7,6 +7,7 @@ import {
   BackBarItem,
   NavigationBar,
   NavigationContainer,
+  NavigationItems,
   NavigationScrollbars,
   TitleBarItem,
 } from './NavigationBar';
@@ -37,14 +38,16 @@ export default class Preferences extends Component<IPreferencesProps> {
           <View style={styles.preferences}>
             <NavigationContainer>
               <NavigationBar>
-                <BackBarItem action={this.props.onClose}>
-                  {// TRANSLATORS: Back button in navigation bar
-                  messages.pgettext('preferences-nav', 'Settings')}
-                </BackBarItem>
-                <TitleBarItem>
-                  {// TRANSLATORS: Title label in navigation bar
-                  messages.pgettext('preferences-nav', 'Preferences')}
-                </TitleBarItem>
+                <NavigationItems>
+                  <BackBarItem action={this.props.onClose}>
+                    {// TRANSLATORS: Back button in navigation bar
+                    messages.pgettext('preferences-nav', 'Settings')}
+                  </BackBarItem>
+                  <TitleBarItem>
+                    {// TRANSLATORS: Title label in navigation bar
+                    messages.pgettext('preferences-nav', 'Preferences')}
+                  </TitleBarItem>
+                </NavigationItems>
               </NavigationBar>
 
               <View style={styles.preferences__container}>
