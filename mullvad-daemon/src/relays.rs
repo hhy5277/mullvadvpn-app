@@ -5,7 +5,7 @@ use mullvad_types::{
     endpoint::MullvadEndpoint,
     location::Location,
     relay_constraints::{
-        Constraint, LocationConstraint, Match, OpenVpnConstraints, RelayConstraints,
+        Constraint, BridgeConstraints, LocationConstraint, Match, OpenVpnConstraints, RelayConstraints,
         TunnelConstraints, WireguardConstraints,
     },
     relay_list::{Relay, RelayList, RelayTunnels, WireguardEndpointData},
@@ -177,6 +177,14 @@ impl RelaySelector {
             DateTime::<Local>::from(unsynchronized_parsed_relays.last_updated())
                 .format(DATE_TIME_FORMAT_STR)
         );
+        for relay in unsynchronized_parsed_relays.relays() {
+            if !relay.bridges.is_empty() {
+                debug!(
+                    "relay {} has these bridges: {:#?}",
+                    relay.hostname, relay.bridges
+                );
+            }
+        }
         let parsed_relays = Arc::new(Mutex::new(unsynchronized_parsed_relays));
         let updater = RelayListUpdater::spawn(
             rpc_handle,
@@ -214,24 +222,25 @@ impl RelaySelector {
     /// preferences applied.
     pub fn get_tunnel_endpoint(
         &mut self,
-        constraints: &RelayConstraints,
+        relay_constraints: &RelayConstraints,
+        bridge_constraints: &BridgeConstraints,
         retry_attempt: u32,
     ) -> Result<(Relay, MullvadEndpoint), Error> {
-        let preferred_constraints = Self::preferred_constraints(constraints, retry_attempt);
+        let preferred_constraints = Self::preferred_constraints(relay_constraints, retry_attempt);
         if let Some((relay, endpoint)) = self.get_tunnel_endpoint_internal(&preferred_constraints) {
             debug!(
                 "Relay matched on highest preference for retry attempt {}",
                 retry_attempt
             );
             Ok((relay, endpoint))
-        } else if let Some((relay, endpoint)) = self.get_tunnel_endpoint_internal(constraints) {
+        } else if let Some((relay, endpoint)) = self.get_tunnel_endpoint_internal(relay_constraints) {
             debug!(
                 "Relay matched on second preference for retry attempt {}",
                 retry_attempt
             );
             Ok((relay, endpoint))
         } else {
-            warn!("No relays matching {}", constraints);
+            warn!("No relays matching {}", relay_constraints);
             Err(Error::NoRelay)
         }
     }
@@ -621,6 +630,7 @@ impl RelayListUpdater {
 
     fn download_relay_list(&mut self) -> Result<RelayList, Error> {
         info!("Downloading list of relays...");
+        return Err(Error::DownloadTimeout);
 
         let download_future = self.rpc_client.relay_list_v2().map_err(Error::Download);
         let relay_list = Timer::default()
