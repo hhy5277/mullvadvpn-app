@@ -1,0 +1,41 @@
+mullvad-types::Settings:
+  relay_settings: RelaySettings:
+      Normal(RelayConstraints):
+          location: Constraint<LocationConstraint>,
+          protocol: Constraint<TunnelConstraints>:
+            OpenVpn(OpenVpnConstraints):
+              port,
+              protocol,
+            Wireguard(WireguardConstraints):
+              port
+      Custom(CustomTunnelEndpoint),
+  bridge_state: BridgeState:
+    Auto,
+    On,
+    Off,
+  tunnel_options: TunnelOptions:
+      OpenVpn(mssfix: Option<u16>),
+      talpid-types::wireguard::TunnelOptions,
+      talpid-types::GenericTunnelOptions,
+  bridge_settings: BridgeSettings:
+    Normal(BridgeConstraints):
+      location: Constraint<LocationConstraint>,
+      protocol: Constraint<BridgeProtocolConstraint>,
+    Custom(talpid-types::openvpn::ProxySettings),
+
+talpid-types::openvpn::TunnelOptions:
+  mssfix,
+  ProxySettings, enum:
+    ShadowsocksProxySettings:
+      peer,
+      password,
+      cipher,
+    ...
+
+talpid-types::TunnelParameters, enum:
+  OpenVpn(openvpn::TunnelParameters):
+    ConnectionConfig:
+      Endpoint, username, password
+    openvpn::TunnelOptions,
+    GenericTunnelOptions,
+  Wireguard(wireguard::TunnelParameters):
