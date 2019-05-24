@@ -959,17 +959,15 @@ where
     }
 
     fn on_get_wireguard_key(&mut self, tx: oneshot::Sender<Option<wireguard::PublicKey>>) {
-        let key = self
-            .settings
-            .get_account_token()
-            .and_then(|account| self.account_history.get(&account).ok()?)
-            .and_then(|account_entry| {
-                account_entry
-                    .wireguard
-                    .map(|wg| wg.private_key.public_key())
-            });
+        Self::oneshot_send(tx, self.get_wireguard_key(), "get_wireguard_key response");
+    }
 
-        Self::oneshot_send(tx, key, "get_wireguard_key response");
+    fn get_wireguard_key(&mut self) -> Option<wireguard::PublicKey> {
+        let account_token = self.settings.get_account_token()?;
+        let account_entry = self.account_history.get(&account_token).ok()??;
+        let wireguard_data = account_entry.wireguard?;
+
+        Some(wireguard_data.private_key.public_key())
     }
 
     fn on_verify_wireguard_key(&mut self, tx: oneshot::Sender<bool>) {
