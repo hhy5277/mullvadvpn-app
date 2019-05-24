@@ -105,6 +105,8 @@ enum InternalDaemonEvent {
     TunnelStateTransition(TunnelStateTransition),
     /// Request from the `MullvadTunnelParametersGenerator` to obtain a new relay.
     GenerateTunnelParameters(mpsc::Sender<TunnelParameters>, u32),
+    /// Wireguard key was successfully generated and pushed to the API server.
+    WireguardKeyGenerated(WireguardKeyGenerationResult),
     /// An event coming from the JSONRPC-2.0 management interface.
     ManagementInterfaceEvent(ManagementCommand),
     /// Triggered if the server hosting the JSONRPC-2.0 management interface dies unexpectedly.
@@ -122,6 +124,30 @@ impl From<TunnelStateTransition> for InternalDaemonEvent {
 impl From<ManagementCommand> for InternalDaemonEvent {
     fn from(command: ManagementCommand) -> Self {
         InternalDaemonEvent::ManagementInterfaceEvent(command)
+    }
+}
+
+pub struct WireguardKeyGenerationResult {
+    account_entry: account_history::AccountEntry,
+    listener: oneshot::Sender<std::result::Result<(), mullvad_rpc::Error>>,
+}
+
+impl WireguardKeyGenerationResult {
+    pub fn new(
+        mut account_entry: account_history::AccountEntry,
+        addresses: mullvad_types::wireguard::AssociatedAddresses,
+        private_key: wireguard::PrivateKey,
+        listener: oneshot::Sender<std::result::Result<(), mullvad_rpc::Error>>,
+    ) -> Self {
+        account_entry.wireguard = Some(mullvad_types::wireguard::WireguardData {
+            private_key,
+            addresses,
+        });
+
+        WireguardKeyGenerationResult {
+            account_entry,
+            listener,
+        }
     }
 }
 
@@ -402,6 +428,7 @@ where
             GenerateTunnelParameters(tunnel_parameters_tx, retry_attempt) => {
                 self.handle_generate_tunnel_parameters(&tunnel_parameters_tx, retry_attempt)
             }
+            WireguardKeyGenerated(result) => self.handle_wireguard_key_generated(result),
             ManagementInterfaceEvent(event) => self.handle_management_interface_event(event),
             ManagementInterfaceExited => {
                 return Err(Error::ManagementInterfaceExited);
@@ -905,13 +932,13 @@ where
         &mut self,
         tx: oneshot::Sender<::std::result::Result<(), mullvad_rpc::Error>>,
     ) {
-        let mut result = || -> ::std::result::Result<(), String> {
+        let result = || -> ::std::result::Result<(), String> {
             let account_token = self
                 .settings
                 .get_account_token()
                 .ok_or("No account token set".to_string())?;
 
-            let mut account_entry = self
+            let account_entry = self
                 .account_history
                 .get(&account_token)
                 .map_err(|e| format!("Failed to read account entry from history: {}", e))
@@ -928,30 +955,43 @@ where
             let private_key = wireguard::PrivateKey::new_from_random()
                 .map_err(|e| format!("Failed to generate new key - {}", e))?;
 
-            let fut = self
+            let daemon_tx = self.tx.clone();
+            let push_key = self
                 .wg_key_proxy
                 .push_wg_key(account_token, private_key.public_key());
 
-            let addresses = oneshot::spawn(fut, &self.tokio_remote)
-                .wait()
-                .map_err(|e| format!("Failed to push new wireguard key: {}", e))?;
-
-            account_entry.wireguard = Some(mullvad_types::wireguard::WireguardData {
-                private_key,
-                addresses,
+            self.tokio_remote.spawn(|_| {
+                push_key.then(move |result| {
+                    match result {
+                        Ok(addresses) => {
+                            let _ = daemon_tx.send(InternalDaemonEvent::WireguardKeyGenerated(
+                                WireguardKeyGenerationResult::new(
+                                    account_entry,
+                                    addresses,
+                                    private_key,
+                                    tx,
+                                ),
+                            ));
+                        }
+                        Err(error) => log::error!("Failed to push new wireguard key: {}", error),
+                    };
+                    Ok(())
+                })
             });
 
-            self.account_history
-                .insert(account_entry)
-                .map_err(|e| format!("Failed to add new wireguard key to account data: {}", e))
+            Ok(())
         };
-        match result() {
+        if let Err(error) = result() {
+            log::error!("Failed to generate new wireguard key - {}", error);
+        }
+    }
+
+    fn handle_wireguard_key_generated(&mut self, result: WireguardKeyGenerationResult) {
+        match self.account_history.insert(result.account_entry) {
             Ok(()) => {
-                Self::oneshot_send(tx, Ok(()), "generate_wireguard_key response");
+                let _ = result.listener.send(Ok(()));
             }
-            Err(e) => {
-                log::error!("Failed to generate new wireguard key - {}", e);
-            }
+            Err(e) => log::error!("Failed to add new wireguard key to account data: {}", e),
         }
     }
 
