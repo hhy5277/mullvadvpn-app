@@ -129,7 +129,7 @@ impl From<ManagementCommand> for InternalDaemonEvent {
 
 pub struct WireguardKeyGenerationResult {
     account_entry: account_history::AccountEntry,
-    listener: oneshot::Sender<std::result::Result<(), mullvad_rpc::Error>>,
+    listener: Option<oneshot::Sender<std::result::Result<(), mullvad_rpc::Error>>>,
 }
 
 impl WireguardKeyGenerationResult {
@@ -137,7 +137,7 @@ impl WireguardKeyGenerationResult {
         mut account_entry: account_history::AccountEntry,
         addresses: mullvad_types::wireguard::AssociatedAddresses,
         private_key: wireguard::PrivateKey,
-        listener: oneshot::Sender<std::result::Result<(), mullvad_rpc::Error>>,
+        listener: Option<oneshot::Sender<std::result::Result<(), mullvad_rpc::Error>>>,
     ) -> Self {
         account_entry.wireguard = Some(mullvad_types::wireguard::WireguardData {
             private_key,
@@ -408,6 +408,7 @@ where
     /// Consume the `Daemon` and run the main event loop. Blocks until an error happens or a
     /// shutdown event is received.
     pub fn run(mut self) -> Result<()> {
+        self.maybe_generate_wireguard_key();
         if self.settings.get_auto_connect() && self.settings.get_account_token().is_some() {
             info!("Automatically connecting since auto-connect is turned on");
             self.set_target_state(TargetState::Secured);
@@ -419,6 +420,14 @@ where
             }
         }
         Ok(())
+    }
+
+    pub fn maybe_generate_wireguard_key(&mut self) {
+        if self.get_wireguard_key().is_none() {
+            self.on_generate_wireguard_key(None);
+        } else {
+            log::debug!("Account already has a Wireguard key");
+        }
     }
 
     fn handle_event(&mut self, event: InternalDaemonEvent) -> Result<()> {
@@ -596,7 +605,7 @@ where
             SetEnableIpv6(tx, enable_ipv6) => self.on_set_enable_ipv6(tx, enable_ipv6),
             SetWireguardMtu(tx, mtu) => self.on_set_wireguard_mtu(tx, mtu),
             GetSettings(tx) => self.on_get_settings(tx),
-            GenerateWireguardKey(tx) => self.on_generate_wireguard_key(tx),
+            GenerateWireguardKey(tx) => self.on_generate_wireguard_key(Some(tx)),
             GetWireguardKey(tx) => self.on_get_wireguard_key(tx),
             VerifyWireguardKey(tx) => self.on_verify_wireguard_key(tx),
             GetVersionInfo(tx) => self.on_get_version_info(tx),
@@ -930,7 +939,7 @@ where
 
     fn on_generate_wireguard_key(
         &mut self,
-        tx: oneshot::Sender<::std::result::Result<(), mullvad_rpc::Error>>,
+        tx: Option<oneshot::Sender<::std::result::Result<(), mullvad_rpc::Error>>>,
     ) {
         let result = || -> ::std::result::Result<(), String> {
             let account_token = self
@@ -989,7 +998,10 @@ where
     fn handle_wireguard_key_generated(&mut self, result: WireguardKeyGenerationResult) {
         match self.account_history.insert(result.account_entry) {
             Ok(()) => {
-                let _ = result.listener.send(Ok(()));
+                log::info!("Wireguard key successfully generated");
+                if let Some(listener) = result.listener {
+                    let _ = listener.send(Ok(()));
+                }
             }
             Err(e) => log::error!("Failed to add new wireguard key to account data: {}", e),
         }
