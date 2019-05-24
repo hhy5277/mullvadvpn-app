@@ -932,11 +932,8 @@ where
                 .wg_key_proxy
                 .push_wg_key(account_token, private_key.public_key());
 
-            let mut core = tokio_core::reactor::Core::new()
-                .map_err(|e| format!("Failed to spawn future for pushing wg key - {}", e))?;
-
-            let addresses = core
-                .run(fut)
+            let addresses = oneshot::spawn(fut, &self.tokio_remote)
+                .wait()
                 .map_err(|e| format!("Failed to push new wireguard key: {}", e))?;
 
             account_entry.wireguard = Some(mullvad_types::wireguard::WireguardData {
