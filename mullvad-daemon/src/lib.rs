@@ -725,6 +725,7 @@ where
                             }
                             info!("Initiating tunnel restart because the account token changed");
                             self.reconnect_tunnel();
+                            self.maybe_generate_wireguard_key();
                         }
                         None => {
                             info!("Disconnecting because account token was cleared");
