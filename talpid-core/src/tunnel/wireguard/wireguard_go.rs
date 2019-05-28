@@ -61,6 +61,7 @@ impl WgGoTunnel {
         tunnel_config
             .dns_servers
             .extend(config.ipv6_gateway.clone().map(IpAddr::V6));
+        tunnel_config.mtu = config.mtu;
 
         tunnel_config
     }
