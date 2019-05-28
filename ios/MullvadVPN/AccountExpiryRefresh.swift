@@ -22,7 +22,7 @@ class AccountExpiryRefresh {
         return queue
     }()
 
-    private var observers = [Observer]()
+    private var observers = WeakArray<Observer>([])
     private weak var repeatProcedure: RepeatProcedure<Operation>?
 
     private init() {}
@@ -67,7 +67,7 @@ class AccountExpiryRefresh {
     private func notifyObservers() {
         if let expiry = Account.expiry {
             for observer in observers {
-                observer.notify(with: expiry)
+                observer?.notify(with: expiry)
             }
         }
     }
@@ -85,6 +85,7 @@ class AccountExpiryRefresh {
             let notifyObserversProcedure = UIBlockProcedure(block: { [weak self] in
                 self?.notifyObservers()
             })
+
             notifyObserversProcedure.addDependency(saveAccountExpiryProcedure)
 
             return GroupProcedure(operations: [requestProcedure, saveAccountExpiryProcedure, notifyObserversProcedure])
@@ -118,4 +119,32 @@ class AccountExpiryRefresh {
         }
     }
 
+}
+
+final class WeakBox<A: AnyObject> {
+    weak var unbox: A?
+    init(_ value: A) {
+        unbox = value
+    }
+}
+
+struct WeakArray<Element: AnyObject> {
+    private var items: [WeakBox<Element>] = []
+
+    init(_ elements: [Element]) {
+        items = elements.map { WeakBox($0) }
+    }
+}
+
+extension WeakArray: Collection {
+    var startIndex: Int { return items.startIndex }
+    var endIndex: Int { return items.endIndex }
+
+    subscript(_ index: Int) -> Element? {
+        return items[index].unbox
+    }
+
+    func index(after idx: Int) -> Int {
+        return items.index(after: idx)
+    }
 }
