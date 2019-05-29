@@ -1,5 +1,6 @@
 use super::{Config, Error, Result, Tunnel};
 use crate::tunnel::tun_provider::{Tun, TunConfig, TunProvider};
+use ipnetwork::IpNetwork;
 use std::{ffi::CString, fs, net::IpAddr, os::unix::io::AsRawFd, path::Path};
 
 pub struct WgGoTunnel {
@@ -16,9 +17,10 @@ impl WgGoTunnel {
         config: &Config,
         log_path: Option<&Path>,
         tun_provider: &dyn TunProvider,
+        routes: impl Iterator<Item = IpNetwork>,
     ) -> Result<Self> {
         let tunnel_device = tun_provider
-            .create_tun(Self::create_tunnel_config(config))
+            .create_tun(Self::create_tunnel_config(config, routes))
             .map_err(Error::SetupTunnelDeviceError)?;
 
         let interface_name: String = tunnel_device.interface_name().to_string();
@@ -51,7 +53,7 @@ impl WgGoTunnel {
         })
     }
 
-    fn create_tunnel_config(config: &Config) -> TunConfig {
+    fn create_tunnel_config(config: &Config, routes: impl Iterator<Item = IpNetwork>) -> TunConfig {
         let mut tunnel_config = TunConfig::default();
 
         tunnel_config.addresses.extend(&config.tunnel.addresses);
@@ -61,6 +63,7 @@ impl WgGoTunnel {
         tunnel_config
             .dns_servers
             .extend(config.ipv6_gateway.clone().map(IpAddr::V6));
+        tunnel_config.routes.extend(routes);
         tunnel_config.mtu = config.mtu;
 
         tunnel_config
